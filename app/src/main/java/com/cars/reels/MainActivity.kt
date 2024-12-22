@@ -1,8 +1,13 @@
 package com.cars.reels
 
+import VideoAdapter
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -29,13 +34,14 @@ class MainActivity : AppCompatActivity() {
 
         viewPager = findViewById<ViewPager2>(R.id.viewPager)
 
+        checkPermissions()
         populateUi()
 
     }
 
 
     private fun populateUi(){
-        videoAdapter = VideoAdapter(getVideoList(),viewPager)
+        videoAdapter = VideoAdapter(getVideoList(),viewPager,this)
         viewPager.adapter = videoAdapter
     }
 
@@ -116,6 +122,15 @@ class MainActivity : AppCompatActivity() {
                 videoUrl = videoUrl,
                 videoTitle = randomTitles.getOrElse(index) { "Untitled Video" },
                 videoDesc = randomDescriptions.getOrElse(index) { "No description available." }
+            )
+        }
+    }
+
+    private fun checkPermissions() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this, arrayOf(Manifest.permission.RECORD_AUDIO), 0
             )
         }
     }

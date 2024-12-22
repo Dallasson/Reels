@@ -1,30 +1,87 @@
-package com.cars.reels
-
+import android.content.Context
+import android.content.Intent
+import android.graphics.Color
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.widget.ImageView
+import android.widget.Toast
+import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.VideoView
-import android.widget.Toast
-import androidx.viewpager2.widget.ViewPager2
-import androidx.recyclerview.widget.RecyclerView
+import androidx.appcompat.widget.SwitchCompat
+import com.cars.reels.R
+import com.cars.reels.VideoModel
 
-class VideoAdapter(private val videoPaths: List<VideoModel>, private val viewPager: ViewPager2) :
-    RecyclerView.Adapter<VideoAdapter.VideoViewHolder>() {
+class VideoAdapter(
+    private val videoPaths: List<VideoModel>,
+    private val viewPager: ViewPager2,
+    private val context: Context
+) : RecyclerView.Adapter<VideoAdapter.VideoViewHolder>() {
 
-    inner class VideoViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val videoView: VideoView = itemView.findViewById(R.id.videoView)
-        val videoTitle: TextView = itemView.findViewById(R.id.vidTitle)
-        val videoDesc: TextView = itemView.findViewById(R.id.vidDescription)
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var isAutopilotEnabled = false
+    private var isVoiceCommandTriggered = false
 
-        // References for the views inside LinearLayout
-        val like: ImageView = itemView.findViewById(R.id.like)
-        val likesText: TextView = itemView.findViewById(R.id.likesText)
-        val dislike: ImageView = itemView.findViewById(R.id.dislike)
-        val report: ImageView = itemView.findViewById(R.id.report)
-        val record: ImageView = itemView.findViewById(R.id.record)
-        val next: ImageView = itemView.findViewById(R.id.next)
+    init {
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {}
+
+            override fun onBeginningOfSpeech() {}
+
+            override fun onRmsChanged(rmsdB: Float) {}
+
+            override fun onBufferReceived(buffer: ByteArray?) {}
+
+            override fun onEndOfSpeech() {}
+
+            override fun onError(error: Int) {
+                Toast.makeText(context, "Speech recognition error", Toast.LENGTH_SHORT).show()
+            }
+
+            override fun onResults(results: Bundle?) {
+                val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                matches?.let {
+                    val command = it[0].lowercase()
+                    if (command.contains("enable autopilot")) {
+                        isAutopilotEnabled = true
+                        isVoiceCommandTriggered = true
+                        // Safely update the adapter
+                        viewPager.post {
+                            notifyDataSetChanged()
+                        }
+                        Toast.makeText(context, "Autopilot Enabled", Toast.LENGTH_SHORT).show()
+                    } else if (command.contains("disable autopilot")) {
+                        isAutopilotEnabled = false
+                        isVoiceCommandTriggered = true
+                        // Safely update the adapter
+                        viewPager.post {
+                            notifyDataSetChanged()
+                        }
+                        Toast.makeText(context, "Autopilot Disabled", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+
+            override fun onPartialResults(partialResults: Bundle?) {}
+
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+    }
+
+    private fun startListening() {
+        val recognizerIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Say a command")
+        }
+        speechRecognizer?.startListening(recognizerIntent)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VideoViewHolder {
@@ -39,105 +96,106 @@ class VideoAdapter(private val videoPaths: List<VideoModel>, private val viewPag
         holder.videoDesc.text = videoModel.videoDesc
         holder.videoView.setVideoPath(videoModel.videoUrl)
 
-        // Set on prepared listener for scaling video view
+        updateIconsTint(holder)
+
         holder.videoView.setOnPreparedListener {
             it.start()
 
             val videoRatio = it.videoWidth / it.videoHeight.toFloat()
             val screenRatio = holder.videoView.width / holder.videoView.height.toFloat()
             val scale = videoRatio / screenRatio
-
-            if (scale >= 1f) {
+            if(scale >= 1f){
                 holder.videoView.scaleX = scale
             } else {
                 holder.videoView.scaleY = 1f / scale
             }
         }
 
-        // Set on completion listener for looping video
         holder.videoView.setOnCompletionListener {
-            it.start()
-        }
-
-        // Handle speech-based actions
-        handleSpeechCommands(holder, position)
-
-        // Set the "Next" button action directly inside the adapter
-        holder.next.setOnClickListener {
-            if (position < videoPaths.size - 1) {
-                println("Next button clicked, moving to next clip.")
-                viewPager.setCurrentItem(position + 1, true)
+            if (isAutopilotEnabled) {
+                if (position < videoPaths.size - 1) {
+                    viewPager.setCurrentItem(position + 1, true)
+                } else {
+                    Toast.makeText(context, "No more videos", Toast.LENGTH_SHORT).show()
+                }
             } else {
-                Toast.makeText(holder.itemView.context, "No more videos", Toast.LENGTH_SHORT).show()
+                it.start()
             }
         }
 
-        // Debugging: Log to see if click listeners are triggered
         holder.like.setOnClickListener {
-            println("Like button clicked.")
-            holder.likesText.text =  "1"
-            highlightButton(holder.like)
+            holder.likeText.text = "1"
+            Toast.makeText(context, "Liked", Toast.LENGTH_SHORT).show()
+            highlightIcon(holder.like)
         }
 
         holder.dislike.setOnClickListener {
-            println("Dislike button clicked.")
-            holder.likesText.text =  "0"
-            highlightButton(holder.dislike)
+            holder.likeText.text = "0"
+            Toast.makeText(context, "Disliked", Toast.LENGTH_SHORT).show()
+            highlightIcon(holder.dislike)
         }
 
-        holder.report.setOnClickListener {
-            println("Report button clicked.")
-            Toast.makeText(holder.itemView.context, "Clip reported", Toast.LENGTH_SHORT).show()
+        holder.comment.setOnClickListener {
+            Toast.makeText(context, "Comment Posted", Toast.LENGTH_SHORT).show()
+            highlightIcon(holder.comment)
         }
 
-        holder.record.setOnClickListener {
-            println("Record button clicked.")
-            highlightButton(holder.record)
-            Toast.makeText(holder.itemView.context, "Saved clip", Toast.LENGTH_SHORT).show()
+        holder.share.setOnClickListener {
+            Toast.makeText(context, "Shared", Toast.LENGTH_SHORT).show()
+            highlightIcon(holder.share)
         }
-    }
 
-    private fun handleSpeechCommands(holder: VideoViewHolder, position: Int) {
-        // Assuming you have speech command logic where `command` is the detected speech
-        val command = "" // Get the speech command, like "Like", "Dislike", "Report", etc.
+        holder.rotate.setOnClickListener {
+            Toast.makeText(context, "Rotated", Toast.LENGTH_SHORT).show()
+            highlightIcon(holder.rotate)
+        }
 
-        when (command.lowercase()) {
-            "like" -> {
-                println("Speech command: Like")
-                highlightButton(holder.like)
+        holder.enableAutoPilot.isChecked = isAutopilotEnabled
+        holder.enableAutoPilot.setOnCheckedChangeListener { _, isChecked ->
+            if (!isVoiceCommandTriggered) {
+                isAutopilotEnabled = isChecked
             }
-            "dislike" -> {
-                println("Speech command: Dislike")
-                highlightButton(holder.dislike)
-            }
-            "report" -> {
-                println("Speech command: Report")
-                Toast.makeText(holder.itemView.context, "Clip reported", Toast.LENGTH_SHORT).show()
-            }
-            "record" -> {
-                println("Speech command: Record")
-                highlightButton(holder.record)
-                Toast.makeText(holder.itemView.context, "Saved clip", Toast.LENGTH_SHORT).show()
-            }
-            "next" -> {
-                if (position < videoPaths.size - 1) {
-                    println("Speech command: Next, moving to next clip.")
-                    viewPager.setCurrentItem(position + 1, true)
-                }
+            isVoiceCommandTriggered = false
+            notifyDataSetChanged()
+            if (isChecked) {
+                startListening()
             }
         }
     }
 
-    private fun highlightButton(button: ImageView) {
-        button.setColorFilter(0xFF00FF00.toInt())
-        button.postDelayed({ button.clearColorFilter() }, 500)
+    private fun updateIconsTint(holder: VideoViewHolder) {
+        val tintColor = if (isAutopilotEnabled) Color.parseColor("#FFA500") else Color.WHITE
+        holder.like.setColorFilter(tintColor)
+        holder.dislike.setColorFilter(tintColor)
+        holder.comment.setColorFilter(tintColor)
+        holder.share.setColorFilter(tintColor)
+        holder.rotate.setColorFilter(if (isAutopilotEnabled) Color.parseColor("#FFA500") else Color.WHITE)
+    }
+
+    private fun highlightIcon(icon: ImageView) {
+        icon.setColorFilter(Color.parseColor("#FFFF00")) // Highlight with yellow tint
+        icon.postDelayed({
+            icon.setColorFilter(if (isAutopilotEnabled) Color.parseColor("#FFA500") else Color.WHITE)
+        }, 300)
     }
 
     override fun getItemCount(): Int = videoPaths.size
 
     override fun onViewRecycled(holder: VideoViewHolder) {
         super.onViewRecycled(holder)
-        // Optionally stop video playback when the view is recycled
         holder.videoView.stopPlayback()
+    }
+
+    inner class VideoViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val videoView: VideoView = itemView.findViewById(R.id.videoView)
+        val videoTitle: TextView = itemView.findViewById(R.id.vidTitle)
+        val videoDesc: TextView = itemView.findViewById(R.id.vidDescription)
+        val like: ImageView = itemView.findViewById(R.id.like)
+        val dislike: ImageView = itemView.findViewById(R.id.dislike)
+        val comment: ImageView = itemView.findViewById(R.id.comment)
+        val share: ImageView = itemView.findViewById(R.id.share)
+        val rotate: ImageView = itemView.findViewById(R.id.rotate)
+        val likeText: TextView = itemView.findViewById(R.id.likesText)
+        val enableAutoPilot: SwitchCompat = itemView.findViewById(R.id.switchButton)
     }
 }
