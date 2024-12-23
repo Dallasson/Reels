@@ -1,6 +1,5 @@
 package com.cars.reels
 
-import VideoAdapter
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -10,9 +9,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import androidx.viewpager.widget.ViewPager
 import androidx.viewpager2.widget.ViewPager2
 
 class MainActivity : AppCompatActivity() {
