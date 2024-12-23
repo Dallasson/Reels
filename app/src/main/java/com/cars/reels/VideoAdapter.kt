@@ -47,7 +47,19 @@ class VideoAdapter(
         currentVideoHolder = holder
         updateIconsAppearance()
 
-        holder.videoView.setOnPreparedListener { mediaPlayer -> mediaPlayer.start() }
+        holder.videoView.setOnPreparedListener {
+                mediaPlayer -> mediaPlayer.start()
+            val videoRatio = mediaPlayer.videoWidth / mediaPlayer.videoHeight.toFloat()
+            val screenRatio = holder.videoView.width / holder.videoView.height.toFloat()
+
+            val scale = videoRatio / screenRatio
+
+            if(scale >= 1f){
+                holder.videoView.scaleX = scale
+            } else {
+                holder.videoView.scaleY = 1f / scale
+            }
+        }
 
         holder.videoView.setOnCompletionListener {
             if (isAutopilotEnabled) {
@@ -67,62 +79,66 @@ class VideoAdapter(
                 startListening(holder)
             } else {
                 stopListening()
+                updateIconsAppearance()
             }
         }
 
-        // Icon click listeners
         holder.like.setOnClickListener {
-            holder.likeTxt.text = "1" // Set likeText to 1
-            Toast.makeText(context, "Liked", Toast.LENGTH_SHORT).show() // Show toast
-            highlightIcon(holder.like) // Highlight the icon with orange
+            holder.likeTxt.text = "1"
+            Toast.makeText(context, "Liked", Toast.LENGTH_SHORT).show()
+            highlightIcon(holder.like)
         }
 
         holder.dislike.setOnClickListener {
-            holder.likeTxt.text = "0" // Set likeText to 0
-            Toast.makeText(context, "Disliked", Toast.LENGTH_SHORT).show() // Show toast
-            highlightIcon(holder.dislike) // Highlight the icon with orange
+            holder.likeTxt.text = "0"
+            Toast.makeText(context, "Disliked", Toast.LENGTH_SHORT).show()
+            highlightIcon(holder.dislike)
         }
 
         holder.comment.setOnClickListener {
-            Toast.makeText(context, "Comment Posted", Toast.LENGTH_SHORT).show() // Show toast
-            highlightIcon(holder.comment) // Highlight the icon with orange
+            Toast.makeText(context, "Comment Posted", Toast.LENGTH_SHORT).show()
+            highlightIcon(holder.comment)
         }
 
         holder.share.setOnClickListener {
-            Toast.makeText(context, "Shared", Toast.LENGTH_SHORT).show() // Show toast
-            highlightIcon(holder.share) // Highlight the icon with orange
+            Toast.makeText(context, "Shared", Toast.LENGTH_SHORT).show()
+            highlightIcon(holder.share)
         }
 
         holder.rotate.setOnClickListener {
-            Toast.makeText(context, "Rotated", Toast.LENGTH_SHORT).show() // Show toast
-            highlightIcon(holder.rotate) // Highlight the icon with orange
+            Toast.makeText(context, "Rotated", Toast.LENGTH_SHORT).show()
+            highlightIcon(holder.rotate)
         }
     }
 
     private fun highlightIcon(icon: ImageView) {
-        // Define the orange tint color in hexadecimal format (0xFFFFA500 for orange)
         val orangeTint = 0xFFFFA500.toInt()
-
-        // Apply the orange color filter to the icon when clicked
         icon.setColorFilter(orangeTint, android.graphics.PorterDuff.Mode.SRC_ATOP)
-
-        // Post a delayed runnable to reset the color filter after 300ms
         icon.postDelayed({
-            icon.clearColorFilter() // Remove the color filter
+            icon.clearColorFilter()
             if (isAutopilotEnabled) {
-                // If autopilot is enabled, keep the orange tint
                 icon.setColorFilter(orangeTint, android.graphics.PorterDuff.Mode.SRC_ATOP)
             }
-        }, 300) // 300 milliseconds delay
+        }, 300)
     }
 
+    private fun updateIconsAppearance() {
+        val orangeTint = 0xFFFFA500.toInt()
+        val whiteTint = 0xFFFFFFFF.toInt()
+        val tint = if (isAutopilotEnabled) orangeTint else whiteTint
 
+        currentVideoHolder.like.setColorFilter(tint, android.graphics.PorterDuff.Mode.SRC_ATOP)
+        currentVideoHolder.dislike.setColorFilter(tint, android.graphics.PorterDuff.Mode.SRC_ATOP)
+        currentVideoHolder.comment.setColorFilter(tint, android.graphics.PorterDuff.Mode.SRC_ATOP)
+        currentVideoHolder.share.setColorFilter(tint, android.graphics.PorterDuff.Mode.SRC_ATOP)
+        currentVideoHolder.rotate.setColorFilter(tint, android.graphics.PorterDuff.Mode.SRC_ATOP)
+    }
 
     private fun startListening(holder: VideoViewHolder) {
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
         speechRecognizer?.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(params: Bundle?) {
-                holder.videoView.pause() // Pause video playback
+                holder.videoView.pause()
             }
 
             override fun onBeginningOfSpeech() {}
@@ -135,7 +151,7 @@ class VideoAdapter(
 
             override fun onError(error: Int) {
                 Toast.makeText(context, "Error: $error", Toast.LENGTH_SHORT).show()
-                holder.videoView.start() // Resume video playback
+                holder.videoView.start()
             }
 
             override fun onResults(results: Bundle?) {
@@ -149,7 +165,7 @@ class VideoAdapter(
                         updateIconsAppearance()
                     }
                 }
-                holder.videoView.start() // Resume video playback
+                holder.videoView.start()
             }
 
             override fun onPartialResults(partialResults: Bundle?) {}
@@ -169,28 +185,6 @@ class VideoAdapter(
         speechRecognizer?.destroy()
         speechRecognizer = null
     }
-
-    private fun updateIconsAppearance() {
-        // Define the orange tint color in hexadecimal format (0xFFFFA500 for orange)
-        val orangeTint = 0xFFFFA500.toInt()
-
-        // Apply the orange color filter to the icons if autopilot is enabled, otherwise, clear the color filter
-        if (isAutopilotEnabled) {
-            currentVideoHolder.like.setColorFilter(orangeTint, android.graphics.PorterDuff.Mode.SRC_ATOP)
-            currentVideoHolder.dislike.setColorFilter(orangeTint, android.graphics.PorterDuff.Mode.SRC_ATOP)
-            currentVideoHolder.comment.setColorFilter(orangeTint, android.graphics.PorterDuff.Mode.SRC_ATOP)
-            currentVideoHolder.share.setColorFilter(orangeTint, android.graphics.PorterDuff.Mode.SRC_ATOP)
-            currentVideoHolder.rotate.setColorFilter(orangeTint, android.graphics.PorterDuff.Mode.SRC_ATOP)
-        } else {
-            // Clear the color filter when autopilot is not enabled
-            currentVideoHolder.like.clearColorFilter()
-            currentVideoHolder.dislike.clearColorFilter()
-            currentVideoHolder.comment.clearColorFilter()
-            currentVideoHolder.share.clearColorFilter()
-            currentVideoHolder.rotate.clearColorFilter()
-        }
-    }
-
 
     override fun getItemCount(): Int = videoPaths.size
 
